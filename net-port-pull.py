@@ -7,7 +7,7 @@ from netaddr import EUI, mac_bare, mac_cisco, mac_eui48, mac_pgsql, mac_unix
 from io import StringIO
 from collections import defaultdict
 
-# Varaibles that'll be feed in by a different application/script.
+# Global varaibles that'll be feed in by a different application/script.
 network_device = ('192.168.1.150',)
 network_username = "cisco" # Move to file before putting into Production.
 network_password = "cisco" # Move to file before putting into Production.
@@ -16,6 +16,8 @@ network_password = "cisco" # Move to file before putting into Production.
 def mac_formatting(mac_address):
     mac = EUI(mac_address)
     mac.dialect = mac_cisco
+
+    mac = str(mac)
 
     return mac
 
@@ -76,53 +78,37 @@ def connection(ip, CMD):
 
     return words
 
-def main():
-    mac = "00:26:73:e8:e2:3c" # Change to MAC feed from server's PXE image/REST API.
-    mac = mac_formatting(mac)
-    #print(connection(network_device[0], 'show mac address-table dynamic\n'))
-    '''
-    d = {}
-    d['192.168.1.150'] = {}
-    d['192.168.1.150']['FastEthenet0/0'] = {}
-    d['192.168.1.150']['FastEthenet0/0']['mac'] = '00:00:00:00:00:00'
-    d['192.168.1.150']['FastEthenet0/0']['vlan'] = '0'
-
-    d['192.168.1.150']['FastEthenet0/1'] = {}
-    d['192.168.1.150']['FastEthenet0/1']['mac'] = '11:11:11:11:11:11'
-    d['192.168.1.150']['FastEthenet0/1']['vlan'] = '1'
+def find_mac(mac_address):
     
-    d['192.168.1.150']['FastEthenet0/2'] = {}
-    d['192.168.1.150']['FastEthenet0/2']['mac'] = '22:22:22:22:22:22'
-    d['192.168.1.150']['FastEthenet0/2']['vlan'] = '2'
+    mac = mac_formatting(mac_address)
 
-    print(d)
-    #print(type(connection(network_device[0], 'show mac address-table dynamic\n')))
-    '''
-    
     d = {}                  # Empty dicionary to store network switch information.
     switchIPCount = 0       # Counter to loop through the switch IP address list.
     outputEntryCount = 0
-    vlan = 0
-    mac = 1
-    port = 3
+    vlan_count = 0
+    mac_count = 1
+    port_count = 3
+    
+    while(switchIPCount < network_device.__len__()):                                            # Loop through each switch
+        CMD = (connection(network_device[switchIPCount], 'show mac address-table dynamic\n'))   # Retreive a list of the port information
+        d = {}                                                                                  # Create the initial dictionary to store the parsed data.
+        while(outputEntryCount < CMD.__len__()):                                                # Loop through the port information list
+            
+            if CMD[mac_count] == mac:
+                d['switch'] = [network_device[switchIPCount]]
+                d['port'] = CMD[port_count]             
+                d['mac'] = CMD[mac_count]  
+                d['vlan'] = CMD[vlan_count]
+            vlan_count = vlan_count + 4
+            mac_count = mac_count + 4
+            port_count = port_count + 4
+            outputEntryCount = outputEntryCount + 4
+        switchIPCount = switchIPCount + 1
+    return d
 
-    while(switchIPCount < network_device.__len__()):
-        CMD = (connection(network_device[switchIPCount], 'show mac address-table dynamic\n'))
-        d[network_device[switchIPCount]] = {}
-        print (CMD.__len__())
-        while(outputEntryCount < CMD.__len__()):
-            d[network_device[switchIPCount]][CMD[port]] = {}                
-            d[network_device[switchIPCount]][CMD[port]]['mac'] = CMD[mac]  
-            d[network_device[switchIPCount]][CMD[port]]['vlan'] = CMD[vlan]
-            outputEntryCount = outputEntryCount + 1
-            #vlan = vlan + 4
-            #mac = mac + 4
-            #port = port + 4
-        switchIPCount = switchIPCount + 1 
+def main():
+    mac = "00:26:73:e8:e2:3c" # Change to MAC feed from server's PXE image/REST API.
+    print(find_mac(mac))
 
-    print(d)
-    n = json.loads(json.dumps(d))
-    print (type(n))
- 
 if __name__ == '__main__':
     main()   
