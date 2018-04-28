@@ -2,34 +2,13 @@
 """
 A script to find the switch (Cisco IOS) port location using an end device MAC address.
 """
-import paramiko, json, time, logging, string, re
-from netaddr import EUI, mac_bare, mac_cisco, mac_eui48, mac_pgsql, mac_unix
-from io import StringIO
-from collections import defaultdict
+import paramiko, time
+from netaddr import EUI, mac_cisco
 
 # Global varaibles that'll be feed in by a different application/script.
 network_device = ('192.168.1.150',)
 network_username = "cisco" # Move to file before putting into Production.
 network_password = "cisco" # Move to file before putting into Production.
-
-
-def mac_formatting(mac_address):
-    mac = EUI(mac_address)
-    mac.dialect = mac_cisco
-
-    mac = str(mac)
-
-    return mac
-
-def disable_paging(remote_conn):
-    # Disable paging on a Cisco router
-    remote_conn.send("terminal length 0\n")
-    time.sleep(1)
-
-    # Clear the buffer on the screen
-    output = remote_conn.recv(1000)
-
-    return output
 
 def connection(ip, CMD):
     
@@ -78,20 +57,35 @@ def connection(ip, CMD):
 
     return words
 
-def find_mac(mac_address):
-    
-    mac = mac_formatting(mac_address)
+def disable_paging(remote_conn):
+    # Disable paging on a Cisco router
+    remote_conn.send("terminal length 0\n")
+    time.sleep(1)
 
-    d = {}                  # Empty dicionary to store network switch information.
-    switchIPCount = 0       # Counter to loop through the switch IP address list.
-    outputEntryCount = 0
-    vlan_count = 0
-    mac_count = 1
-    port_count = 3
-    
-    while(switchIPCount < network_device.__len__()):                                            # Loop through each switch
-        CMD = (connection(network_device[switchIPCount], 'show mac address-table dynamic\n'))   # Retreive a list of the port information
-        d = {}                                                                                  # Create the initial dictionary to store the parsed data.
+    # Clear the buffer on the screen
+    output = remote_conn.recv(1000)
+
+    return output
+
+def mac_formatting(mac_address):
+    mac = EUI(mac_address)
+    mac.dialect = mac_cisco
+
+    mac = str(mac)
+
+    return mac
+
+def find_mac(mac_address):
+    mac = mac_formatting(mac_address)
+    d = {}                                                                                      # Create the initial dictionary to store the parsed data.
+    switchIPCount = 0                                                                           # Counter to loop through the switch IP address list.
+    outputEntryCount = 0                                                                        # Variable that needs to be rest for each switch.
+
+    while(switchIPCount < network_device.__len__()):                                            # Loop through switch list
+        vlan_count = 0                                                                          # Variable that needs to be rest for each switch.
+        mac_count = 1                                                                           # Variable that needs to be rest for each switch.
+        port_count = 3                                                                          # Variable that needs to be rest for each switch.
+        CMD = (connection(network_device[switchIPCount], 'show mac address-table dynamic\n'))   # Retreive the port information list for the selected switch in switch list
         while(outputEntryCount < CMD.__len__()):                                                # Loop through the port information list
             
             if CMD[mac_count] == mac:
@@ -104,10 +98,11 @@ def find_mac(mac_address):
             port_count = port_count + 4
             outputEntryCount = outputEntryCount + 4
         switchIPCount = switchIPCount + 1
+
     return d
 
 def main():
-    mac = "00:26:73:e8:e2:3c" # Change to MAC feed from server's PXE image/REST API.
+    mac = "f4:f2:6d:79:b4:3f" # Change to MAC feed from server's PXE image/REST API.
     print(find_mac(mac))
 
 if __name__ == '__main__':
